@@ -1,0 +1,14 @@
+*.jar
+*.class
+dist/*
+target/
+project/project
+project/target
+*.pscala
+*~
+.classpath
+.project
+.cache
+.settings
+.ensime
+.ensime_cache
