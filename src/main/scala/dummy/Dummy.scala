@@ -21,7 +21,14 @@ object Dummy {
   val message = s"Hello ${userName}."
   def main(args:Array[String]):Unit = {
     
-    import org.apache._    
+    import org.apache.spark.sql.SparkSession
+
+    val spark = SparkSession
+      .builder()
+      .appName("Spark SQL Example")
+      .getOrCreate()
+  
+    import spark.implicits._
     
     // Create a simple DataFrame, store into a partition directory
     val squaresDF = spark.sparkContext.makeRDD(1 to 5).map(i => (i, i * i)).toDF("value", "square")
