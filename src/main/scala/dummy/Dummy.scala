@@ -30,7 +30,7 @@ object Dummy {
       .builder()
       .master("local[4]")
       .appName("Dummy")
-      .config("spark.sql.parquet.compression.codec","lzo") // lzo, gzip, snappy
+      .config("spark.sql.parquet.compression.codec","lzo") // lzo, gzip, snappy, uncompressed
       .getOrCreate()
         
     import spark._

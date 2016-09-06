@@ -1,6 +1,6 @@
 
 ```
-sbt run
+sbt -J-Xmx5g run
 ```
 
 Latest execution on 2016-09-06, with 20 000 000 rows :
