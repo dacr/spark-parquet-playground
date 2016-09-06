@@ -25,6 +25,7 @@ object Dummy {
     import org.apache.spark.SparkConf
     import org.apache.spark.sql.SparkSession
     import org.apache.spark.sql.SaveMode
+    import scala.sys.process._
 
     val spark = SparkSession
       .builder()
@@ -58,12 +59,14 @@ object Dummy {
       val df2 = sparkContext.makeRDD(seq).map(i => (i, i * i, comment)).toDF("value", "square", "comment")
       df2.write.mode(SaveMode.Overwrite).parquet("data/dummytable")
     }
-    println(s"parquet write duration : ${d1/1000}s")
+    val sz1 = ("du -d 0 data".!!).split("\\s+",2).head.toLong/1024/1024
+    println(s"parquet write duration=${d1/1000}s size=${sz1}Mb TODO write in asynchronous !")
     // => 194Mb on disk - 26s
     
     // ----------------------------------------------------------------------------------
+    val filename="dummy.txt"
     val (d2,_) = howlong {
-      val pw = new java.io.PrintWriter("dummy.txt")
+      val pw = new java.io.PrintWriter(filename)
       pw.println("value\tsquare\tcomment")
       for {
         i<- seq
@@ -71,7 +74,8 @@ object Dummy {
       } pw.println(s"$i\t$ii\t$comment")
       pw.close()
     }
-    println(s"file write duration : ${d2/1000}s")
+    val sz2 = new java.io.File(filename).length()/1024/1024
+    println(s"file write duration=${d2/1000}s size=${sz2}Mb")
     // => 677Mb on disk - 19s
 
     
@@ -86,7 +90,7 @@ object Dummy {
 
     // ----------------------------------------------------------------------------------
     val (d4,_) = howlong {
-        val count = scala.io.Source.fromFile("dummy.txt")
+        val count = scala.io.Source.fromFile(filename)
           .getLines
           .drop(1)
           .map(_.split("\t"))
