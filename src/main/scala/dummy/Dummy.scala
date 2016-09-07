@@ -20,7 +20,17 @@ object Dummy {
   val userName = util.Properties.userName
   val message = s"Hello ${userName}."
   
+  
   def main(args:Array[String]):Unit = {
+    parquetThroughSpark()
+  }
+  
+  def parquetThroughJavaAPI():Unit = {
+    
+  }
+  
+  
+  def parquetThroughSpark():Unit = {
     
     import org.apache.spark.SparkConf
     import org.apache.spark.sql.SparkSession
@@ -29,7 +39,7 @@ object Dummy {
 
     val spark = SparkSession
       .builder()
-      .master("local[4]")
+      .master("local[1]")
       .appName("Dummy")
       .config("spark.sql.parquet.compression.codec","lzo") // lzo, gzip, snappy, uncompressed
       .getOrCreate()
@@ -47,25 +57,16 @@ object Dummy {
     def stream(i: Long = 1): Stream[Long] = i #:: stream(i + 1)
     def seq = stream(5000000L).take(20*1000*1000)
     def comment = List("trucABCDEF", "mucheABCDE")(util.Random.nextInt(2))
-    def howlong[T](proc : =>T):(Long, T) = {
+    def howlong[T](proc : =>T):(Float, T) = {
       val started = System.currentTimeMillis
       val result = proc
       val ended = System.currentTimeMillis
-      (ended-started, result)
+      ( (ended-started).toFloat, result)
     }
-    
-    // ----------------------------------------------------------------------------------
-    val (d1,_) = howlong {
-      val df2 = sparkContext.makeRDD(seq).map(i => (i, i * i, comment)).toDF("value", "square", "comment")
-      df2.write.mode(SaveMode.Overwrite).parquet("data/dummytable")
-    }
-    val sz1 = ("du -d 0 data".!!).split("\\s+",2).head.toLong/1024/1024
-    println(s"parquet write duration=${d1/1000}s size=${sz1}Mb TODO write in asynchronous !")
-    // => 194Mb on disk - 26s
-    
+
     // ----------------------------------------------------------------------------------
     val filename="dummy.txt"
-    val (d2,_) = howlong {
+    howlong {
       val pw = new java.io.PrintWriter(filename)
       pw.println("value\tsquare\tcomment")
       for {
@@ -73,32 +74,49 @@ object Dummy {
         ii=i*i
       } pw.println(s"$i\t$ii\t$comment")
       pw.close()
+    } match { case (dur,_) =>
+      val sz = new java.io.File(filename).length()/1024/1024
+      println(s"file write duration=${dur/1000}s size=${sz}Mb")
     }
-    val sz2 = new java.io.File(filename).length()/1024/1024
-    println(s"file write duration=${d2/1000}s size=${sz2}Mb")
-    // => 677Mb on disk - 19s
-
-    
-    // ----------------------------------------------------------------------------------
-    val (d3,_) = howlong {
-      val rdf = read.parquet("data/dummytable")
-      rdf.printSchema()
-      println("count="+rdf.count())
-      //rdf.show(10)
-    }
-    println(s"parquet read duration : ${d3/1000}s")
 
     // ----------------------------------------------------------------------------------
-    val (d4,_) = howlong {
+    howlong {
         val count = scala.io.Source.fromFile(filename)
           .getLines
           .drop(1)
           .map(_.split("\t"))
           .map { case Array(value,square,comment) => (value.toLong, square.toLong, comment) }
+          .filter { case (n, ns, c) => ns % 2 == 1}
           .size
-        println(s"count=$count")
+        println(s"how many odd number=$count")
+    } match { case (dur,_) =>
+      println(s"file read duration : ${dur/1000}s")
     }
-    println(s"file read duration : ${d4/1000}s")
+    
+    // ----------------------------------------------------------------------------------
+    howlong {
+      val df2 = sparkContext.makeRDD(seq).map(i => (i, i * i, comment)).toDF("value", "square", "comment")
+      val writer = df2.write.mode(SaveMode.Overwrite)
+      writer.parquet("data/dummytable")
+    } match { case (dur,_) =>
+      val sz = ("du -d 0 data".!!).split("\\s+",2).head.toLong/1024/1024
+      println(s"parquet write duration=${dur/1000}s size=${sz}Mb TODO write in asynchronous !")
+    }
+    
+    
+    // ----------------------------------------------------------------------------------
+    howlong {
+      val count = 
+        read
+          .parquet("data/dummytable")
+          .filter("square % 2 == 1")
+          .count
+      println(s"how many odd number=$count")
+      //rdf.show(10)
+    } match { case (dur,_) =>
+      println(s"parquet read duration : ${dur/1000}s")
+    }
+
 
     sparkContext.stop()
   }
