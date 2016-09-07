@@ -20,12 +20,51 @@ object Dummy {
   val userName = util.Properties.userName
   val message = s"Hello ${userName}."
   
+  // http://blog.cloudera.com/blog/2016/04/benchmarking-apache-parquet-the-allstate-experience/
   
   def main(args:Array[String]):Unit = {
     parquetThroughSpark()
   }
   
+  
+  
   def parquetThroughJavaAPI():Unit = {
+    
+    // https://github.com/twitter/scalding/tree/develop/scalding-parquet
+    
+    import com.twitter.scalding.parquet._
+    import com.twitter.scalding.parquet.tuple.macros.Macros._
+    import com.twitter.scalding.parquet.tuple._
+    import com.twitter.scalding.{ Args, Job, TypedTsv }
+    import org.apache.parquet.filter2.predicate.{ FilterApi, FilterPredicate }
+    import com.twitter.scalding.typed.TypedPipe
+    import org.apache.parquet.io.api.Binary
+    import org.apache.parquet.filter2.predicate.FilterApi.binaryColumn
+
+
+    case class SampleClass(value: Long, square:Long, comment: String)
+
+    
+    
+    class WriteToTypedParquetTupleJob(args: Args) extends Job(args) {
+      val outputPath = args.required("output")
+      val sink = TypedParquetSink[SampleClass](outputPath)
+  
+      TypedPipe.from(List(SampleClass(0, 1, "foo"), SampleClass(1, 2, "bar"))).write(sink)
+    }
+  
+    
+    
+    class ReadWithFilterPredicateJob(args: Args) extends Job(args) {
+      val fp: FilterPredicate = FilterApi.eq(binaryColumn("comment"), Binary.fromString("foo"))
+  
+      val inputPath = args.required("input")
+      val outputPath = args.required("output")
+  
+      val input = TypedParquet[SampleClass](inputPath, fp)
+  
+      TypedPipe.from(input).map(_.square).write(TypedTsv[Int](outputPath))
+    }
     
   }
   
